@@ -3,50 +3,128 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Addition WebApp</title>
+  <title>Water Bill Calculator</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 50px;
       text-align: center;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     input {
-      padding: 10px;
-      margin: 10px;
-      width: 200px;
+      padding: 15px;
+      margin: 15px;
+      width: 400px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      text-align: center;
     }
     button {
       padding: 10px 20px;
       font-size: 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    .input-group input {
+      margin: 0;
     }
     #result {
       margin-top: 20px;
-      font-size: 20px;
-      color: green;
+      padding: 15px;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+    }
+    .result-item {
+      margin: 10px 0;
+      font-size: 16px;
+    }
+    .total-cost {
+      font-size: 24px;
+      color: #4CAF50;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h1>Addition WebApp</h1>
-  <input type="number" id="num1" placeholder="Enter first number">
-  <input type="number" id="num2" placeholder="Enter second number">
-  <button onclick="addNumbers()">Add</button>
-  <div id="result"></div>
+  <div class="container">
+    <h1>Water Bill Calculator (ජල බිල්පත් ගණකය)</h1>
+    <p>Enter the number of units consumed to calculate your water bill (ඔබගේ ජල බිල්පත ගණනය කිරීමට පරිභෝජනය කළ ඒකක ගණන ඇතුළත් කරන්න)</p>
+    <input type="number" id="units" placeholder="Enter units consumed (පරිභෝජනය කළ ඒකක)" min="0" step="0.01" style="margin: 0 auto; display: block;">
+    
+    <div class="input-group" style="align-items: center;">
+      <input type="number" id="previousDue" placeholder="Previous Due Amount (පෙර හිඟ මුදල)" step="0.01" style="margin: 0 auto; display: block;">
+      <input type="number" id="previousPaid" placeholder="Previous Paid Amount (පෙර ගෙවූ මුදල)" step="0.01" style="margin: 0 auto; display: block;">
+      <input type="number" id="previousCharge" placeholder="Charging for Previous Month (පෙර මාසයේ අය කිරීම)" step="0.01" style="margin: 0 auto; display: block;">
+    </div>
+    
+    <button onclick="calculateBill()">Calculate Bill (බිල්පත ගණනය කරන්න)</button>
+    <div id="result"></div>
+  </div>
 
   <script>
-    async function addNumbers() {
-      const num1 = document.getElementById('num1').value;
-      const num2 = document.getElementById('num2').value;
+    async function calculateBill() {
+      const units = document.getElementById('units').value;
+      const previousDue = parseFloat(document.getElementById('previousDue').value) || 0;
+      const previousPaid = parseFloat(document.getElementById('previousPaid').value) || 0;
+      const previousCharge = parseFloat(document.getElementById('previousCharge').value) || 0;
 
-      // Send a POST request to the backend
-      const response = await fetch('/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ num1, num2 })
-      });
+      try {
+        // Send a POST request to the backend
+        const response = await fetch('/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            units,
+            previousDue,
+            previousPaid,
+            previousCharge
+          })
+        });
 
-      const data = await response.json();
-      document.getElementById('result').innerText = `Result: ${data.result}`;
+        const data = await response.json();
+        
+        if (response.ok) {
+          document.getElementById('result').innerHTML = `
+            <div class="result-item">Units Consumed (පරිභෝජනය කළ ඒකක): ${data.units}</div>
+            <div class="result-item">Fixed Cost (ස්ථාවර පිරිවැය): Rs. ${data.fixedCost.toFixed(2)}</div>
+            <div class="result-item">Base Cost (මූලික පිරිවැය): Rs. ${data.baseCost.toFixed(2)}</div>
+            ${data.previousDue !== 0 ? `<div class="result-item">Previous Due (පෙර හිඟ මුදල): Rs. ${data.previousDue.toFixed(2)}</div>` : ''}
+            ${data.previousPaid !== 0 ? `<div class="result-item">Previous Paid (පෙර ගෙවූ මුදල): Rs. ${data.previousPaid.toFixed(2)}</div>` : ''}
+            ${data.previousCharge !== 0 ? 
+              data.previousDue > 0 ?
+                `<div class="result-item">Added Charge - 2% of Previous Month (අමතර ගාස්තුව - පෙර මාසයේ 2%): Rs. ${data.adjustmentAmount.toFixed(2)}</div>` :
+                `<div class="result-item">Discount - 5% of Previous Month (වට්ටම - පෙර මාසයේ 5%): Rs. ${data.adjustmentAmount.toFixed(2)}</div>`
+              : ''
+            }
+            <div class="result-item total-cost">Total Bill (මුළු බිල්පත): Rs. ${data.totalCost.toFixed(2)}</div>
+          `;
+        } else {
+          document.getElementById('result').innerHTML = `<div class="result-item" style="color: red">${data.error}</div>`;
+        }
+      } catch (error) {
+        document.getElementById('result').innerHTML = '<div class="result-item" style="color: red">An error occurred. Please try again. (දෝෂයක් ඇති විය. කරුණාකර නැවත උත්සාහ කරන්න.)</div>';
+      }
     }
   </script>
 </body>
